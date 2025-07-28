@@ -4,6 +4,8 @@ use anchor_spl::{
     token::{Mint, Token, TokenAccount, Transfer},
 };
 
+use crate::{error::CustomError, CycleAccount, MemberAccount};
+
 #[derive(Accounts)]
 pub struct ExitCycle<'info> {
     #[account(mut)]
@@ -38,6 +40,7 @@ pub struct ExitCycle<'info> {
     )]
     pub member_token_account: Account<'info, TokenAccount>,
 
+    /// CHECK
     #[account(mut)]
     pub organizer: AccountInfo<'info>,
 

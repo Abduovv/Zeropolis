@@ -1,8 +1,9 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{Mint, Token, TokenAccount, Transfer},
+    token::{Token, TokenAccount, Transfer},
 };
+use crate::{error::CustomError, *};
 
 #[derive(Accounts)]
 pub struct CloseCycle<'info> {
@@ -28,7 +29,7 @@ pub struct CloseCycle<'info> {
         mut,
         constraint = member_account.cycle == cycle.key() @ CustomError::InvalidCycle,
         constraint = member_account.is_active @ CustomError::MemberNotActive,
-        close = member
+        close = recipient
     )]
     pub member_account: Option<Account<'info, MemberAccount>>,
 
@@ -53,9 +54,10 @@ pub struct CloseCycle<'info> {
     )]
     pub recipient_token_account: Option<Account<'info, TokenAccount>>,
 
+    /// CHECK: The recipient is validated in the instruction logic to match either the organizer or a member_account's member field.
     #[account(mut)]
     pub recipient: AccountInfo<'info>,
-
+    
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
@@ -77,7 +79,7 @@ impl<'info> CloseCycle<'info> {
             authority: self.cycle.to_account_info(),
         };
         let cpi_program = self.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
+        let cpi_ctx = CpiContext::new_with_signer(cpi_program.clone(), cpi_accounts, signer_seeds);
         anchor_spl::token::transfer(cpi_ctx, self.cycle.organizer_stake)?;
 
         // Update organizer account
@@ -106,7 +108,7 @@ impl<'info> CloseCycle<'info> {
                     to: recipient_token_account.to_account_info(),
                     authority: self.cycle.to_account_info(),
                 };
-                let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
+                let cpi_ctx = CpiContext::new_with_signer(cpi_program.clone(), cpi_accounts, signer_seeds);
                 anchor_spl::token::transfer(cpi_ctx, collateral_refunded)?;
             }
 

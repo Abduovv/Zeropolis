@@ -1,8 +1,9 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{Mint, Token, TokenAccount, Transfer},
+    token::{Token, TokenAccount, Transfer},
 };
+use crate::{error::CustomError, util::calculate_payout_amount, CycleAccount, MemberAccount};
 
 #[derive(Accounts)]
 pub struct TriggerPayout<'info> {
@@ -38,13 +39,12 @@ pub struct TriggerPayout<'info> {
     pub organizer_token_account: Account<'info, TokenAccount>,
 
     #[account(
-        mut,
         constraint = member_account.cycle == cycle.key() @ CustomError::InvalidCycle,
-        constraint = member_account.member == recipient.key() @ CustomError::InvalidMember,
+        constraint = member_account.member == recipient.key() @ CustomError::InvalidPayoutRecipient,
         constraint = member_account.is_active @ CustomError::MemberNotActive
     )]
     pub member_account: Account<'info, MemberAccount>,
-
+/// CHECK
     #[account(mut)]
     pub recipient: AccountInfo<'info>,
 
@@ -64,28 +64,30 @@ impl<'info> TriggerPayout<'info> {
             CustomError::CycleComplete
         );
 
-        // Check if it's time for a payout (every contributions_per_payout rounds)
-        let is_payout_round = (self.cycle.current_round + 1) % self.cycle.contributions_per_payout == 0;
-        if is_payout_round {
-            let payout_index = ((self.cycle.current_round + 1) / self.cycle.contributions_per_payout) - 1;
+        // Update round and next round time
+        self.cycle.current_round = self.cycle.current_round
+            .checked_add(1)
+            .ok_or(CustomError::ArithmeticOverflow)?;
+        self.cycle.next_round_time = self.cycle.next_round_time
+            .checked_add(self.cycle.contribution_interval)
+            .ok_or(CustomError::ArithmeticOverflow)?;
+
+        // Check if this is a payout round
+        if self.cycle.current_round % self.cycle.contributions_per_payout == 0 {
+            let payout_index = (self.cycle.current_round / self.cycle.contributions_per_payout)
+                .checked_sub(1)
+                .ok_or(CustomError::ArithmeticUnderflow)?;
             require!(
                 self.cycle.payout_order[payout_index as usize] == self.recipient.key(),
                 CustomError::InvalidPayoutRecipient
             );
 
-            // Calculate payout (total contributions over contributions_per_payout rounds)
-            let total_payout = self.cycle.amount_per_user
-                .checked_mul(self.cycle.current_participants as u64)
-                .ok_or(CustomError::ArithmeticOverflow)?
-                .checked_mul(self.cycle.contributions_per_payout as u64)
-                .ok_or(CustomError::ArithmeticOverflow)?;
-            let organizer_fee = total_payout
-                .checked_mul(self.cycle.organizer_fee_bps as u64)
-                .ok_or(CustomError::ArithmeticOverflow)?
-                / 10_000;
-            let recipient_payout = total_payout
-                .checked_sub(organizer_fee)
-                .ok_or(CustomError::ArithmeticOverflow)?;
+            // Calculate payout and fee
+            let pot_amount = self.cycle.pot_amount;
+            let payout_amount = calculate_payout_amount(pot_amount, self.cycle.organizer_fee_bps)?;
+            let organizer_fee = pot_amount
+                .checked_sub(payout_amount)
+                .ok_or(CustomError::ArithmeticUnderflow)?;
 
             // Transfer payout to recipient
             let seeds = &[
@@ -100,8 +102,8 @@ impl<'info> TriggerPayout<'info> {
                 authority: self.cycle.to_account_info(),
             };
             let cpi_program = self.token_program.to_account_info();
-            let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
-            anchor_spl::token::transfer(cpi_ctx, recipient_payout)?;
+            let cpi_ctx = CpiContext::new_with_signer(cpi_program.clone(), cpi_accounts, signer_seeds);
+            anchor_spl::token::transfer(cpi_ctx, payout_amount)?;
 
             // Transfer organizer fee
             let cpi_accounts = Transfer {
@@ -112,19 +114,12 @@ impl<'info> TriggerPayout<'info> {
             let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
             anchor_spl::token::transfer(cpi_ctx, organizer_fee)?;
 
-            // Update member account
+            // Mark recipient as having received payout
             self.member_account.payout_received = true;
         }
 
-        // Update cycle state
-        self.cycle.current_round = self.cycle.current_round
-            .checked_add(1)
-            .ok_or(CustomError::ArithmeticOverflow)?;
-        self.cycle.next_round_time = self.cycle.next_round_time
-            .checked_add(self.cycle.contribution_interval)
-            .ok_or(CustomError::ArithmeticOverflow)?;
-
-        if (self.cycle.current_round / self.cycle.contributions_per_payout) >= self.cycle.round_count {
+        // Deactivate cycle if complete
+        if self.cycle.current_round >= self.cycle.round_count * self.cycle.contributions_per_payout {
             self.cycle.is_active = false;
         }
 

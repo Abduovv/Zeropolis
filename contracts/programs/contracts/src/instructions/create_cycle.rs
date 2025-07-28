@@ -3,17 +3,15 @@ use anchor_spl::{
     associated_token::AssociatedToken,
     token::{Mint, Token, TokenAccount, Transfer},
 };
+use crate::{error::CustomError, util::{calculate_organizer_stake, calculate_payout_amount, calculate_pot_amount}, CycleAccount, OrganizerAccount};
 
-use crate::{organizer_account, state::{CycleAccount, MemberAccount, OrganizerAccount}};
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct CreateCycleArgs {
     pub amount_per_user: u64,
     pub max_participants: u8,
-    pub organizer_fee_bps: u16,
     pub contribution_interval: i64,
     pub contributions_per_payout: u8,
     pub round_count: u8,
-    pub payout_order: Vec<Pubkey>,
     pub token_mint: Pubkey,
 }
 
@@ -38,6 +36,7 @@ pub struct CreateCycle<'info> {
         seeds = [b"organizer", organizer.key().as_ref()],
         bump,
         space = 8 + OrganizerAccount::INIT_SPACE,
+        constraint = organizer_account.total_cycles < 5 @ CustomError::TooManyCycles
     )]
     pub organizer_account: Account<'info, OrganizerAccount>,
 
@@ -75,27 +74,21 @@ impl<'info> CreateCycle<'info> {
     ) -> Result<()> {
         let clock = Clock::get()?;
 
+        // Enforce member limits: 2 <= max_participants <= 10
         require!(
-            args.payout_order.len() as u8 == args.max_participants,
-            CustomError::InvalidPayoutOrder
-        );
-        self.organizer_account.load_mut()?;
-        let total_cycles = organizer_account_data.total_cycles;
-        require!(
-            total_cycles < 5,
-            CustomError::TooManyCycles
+            args.max_participants >= 2 && args.max_participants <= 10,
+            CustomError::InvalidMemberCount
         );
 
-        // Calculate pot amount and organizer stake
-        let pot_amount = args.amount_per_user
-            .checked_mul(args.max_participants as u64)
-            .ok_or(CustomError::ArithmeticOverflow)?
-            .checked_mul(args.contributions_per_payout as u64)
-            .ok_or(CustomError::ArithmeticOverflow)?;
-        let required_organizer_stake = pot_amount
-            .checked_mul(20)
-            .ok_or(CustomError::ArithmeticOverflow)?
-            / 100; // 20% of pot
+        // Calculate pot and stakes using util functions
+        let pot_amount = calculate_pot_amount(
+            args.amount_per_user,
+            args.max_participants,
+            args.contributions_per_payout,
+        )?;
+        let organizer_fee_bps = 100; // Fixed at 1%
+        let payout_amount = calculate_payout_amount(pot_amount, organizer_fee_bps)?;
+        let required_organizer_stake = calculate_organizer_stake(pot_amount)?;
         require!(
             self.organizer_token_account.amount >= required_organizer_stake,
             CustomError::InsufficientStake
@@ -122,17 +115,17 @@ impl<'info> CreateCycle<'info> {
         let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
         anchor_spl::token::transfer(cpi_ctx, required_organizer_stake)?;
 
-        // Initialize cycle account
+        // Initialize cycle account with empty payout_order
         self.cycle.set_inner(CycleAccount {
             organizer: self.organizer.key(),
             token_mint: args.token_mint,
             amount_per_user: args.amount_per_user,
             max_participants: args.max_participants,
-            organizer_fee_bps: args.organizer_fee_bps,
+            organizer_fee_bps,
             contribution_interval: args.contribution_interval,
             contributions_per_payout: args.contributions_per_payout,
             round_count: args.round_count,
-            payout_order: args.payout_order.clone(),
+            payout_order: Vec::new(), // Empty, filled during join_cycle
             created_at,
             bump: bumps.cycle,
             current_participants: 0,
@@ -141,6 +134,7 @@ impl<'info> CreateCycle<'info> {
             next_round_time: created_at + args.contribution_interval,
             organizer_stake: required_organizer_stake,
             pot_amount,
+            payout_amount,
             slashed_stakes: 0,
         });
 

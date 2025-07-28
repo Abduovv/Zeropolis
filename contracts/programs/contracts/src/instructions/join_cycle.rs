@@ -1,8 +1,10 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{Mint, Token, TokenAccount, Transfer},
+    token::{Token, TokenAccount, Transfer},
 };
+
+use crate::{error::CustomError, CycleAccount, MemberAccount};
 
 #[derive(Accounts)]
 pub struct JoinCycle<'info> {
@@ -10,7 +12,7 @@ pub struct JoinCycle<'info> {
     pub member: Signer<'info>,
 
     #[account(
-        mut,
+        mut,    
         has_one = organizer,
         constraint = cycle.current_participants < cycle.max_participants @ CustomError::CycleFull
     )]
@@ -38,7 +40,7 @@ pub struct JoinCycle<'info> {
         associated_token::authority = member
     )]
     pub member_token_account: Account<'info, TokenAccount>,
-
+/// CHECK
     #[account(mut)]
     pub organizer: AccountInfo<'info>,
 
@@ -49,21 +51,17 @@ pub struct JoinCycle<'info> {
 
 impl<'info> JoinCycle<'info> {
     pub fn join_cycle(&mut self, bumps: JoinCycleBumps) -> Result<()> {
-        require!(
-            self.cycle.payout_order.contains(&self.member.key()),
-            CustomError::NotInPayoutOrder
-        );
-
-        // Calculate required member stake (10% of pot)
-        let required_member_stake = self.cycle.pot_amount
-            .checked_mul(10)
-            .ok_or(CustomError::ArithmeticOverflow)?
-            / 100; // 10% of pot
+        // Calculate required member stake (100% of payout)
+        let required_member_stake = self.cycle.payout_amount;
         require!(
             self.member_token_account.amount >= required_member_stake,
             CustomError::InsufficientStake
         );
 
+        // Append member to payout_order
+        self.cycle.payout_order.push(self.member.key());
+
+        // Update participant count
         self.cycle.current_participants = self.cycle.current_participants
             .checked_add(1)
             .ok_or(CustomError::ArithmeticOverflow)?;
@@ -73,6 +71,7 @@ impl<'info> JoinCycle<'info> {
             self.cycle.is_active = true;
         }
 
+        // Initialize member account
         self.member_account.set_inner(MemberAccount {
             cycle: self.cycle.key(),
             member: self.member.key(),

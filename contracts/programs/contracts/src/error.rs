@@ -46,4 +46,6 @@ pub enum CustomError {
     InvalidTokenMint,
     #[msg("Insufficient stake amount")]
     InsufficientStake,
+    #[msg("Invalid member count (must be between 2 and 10)")]
+    InvalidMemberCount,
 }

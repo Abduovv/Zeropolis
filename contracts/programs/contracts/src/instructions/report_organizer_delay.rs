@@ -4,6 +4,8 @@ use anchor_spl::{
     token::{Mint, Token, TokenAccount, Transfer},
 };
 
+use crate::{error::CustomError, CycleAccount};
+
 #[derive(Accounts)]
 pub struct ReportOrganizerDelay<'info> {
     #[account(mut)]
@@ -22,7 +24,7 @@ pub struct ReportOrganizerDelay<'info> {
         associated_token::authority = cycle
     )]
     pub cycle_token_account: Account<'info, TokenAccount>,
-
+/// CHECK
     #[account(mut)]
     pub organizer: AccountInfo<'info>,
 

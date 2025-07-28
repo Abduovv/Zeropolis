@@ -1,32 +1,33 @@
+use anchor_lang::prelude::*;
+
 pub mod constants;
 pub mod error;
 pub mod instructions;
 pub mod state;
+pub mod util;
 
-use anchor_lang::prelude::*;
 
 pub use constants::*;
 pub use instructions::*;
 pub use state::*;
+pub use util::*;
 
 declare_id!("B1BXbY7CLKJW4TeJyFgNxzwRtLDEUuFMZTVWbv3FBE9s");
 
 #[program]
 pub mod money_cycle {
     use super::*;
-
     // Create a new cycle
     pub fn create_cycle(
         ctx: Context<CreateCycle>,
         args: CreateCycleArgs,
-        bumps: CreateCycleBumps,
     ) -> Result<()> {
-        ctx.accounts.create_cycle(args, bumps)
+        ctx.accounts.create_cycle(args, ctx.bumps)
     }
 
     // Join an existing cycle
-    pub fn join_cycle(ctx: Context<JoinCycle>, bumps: JoinCycleBumps) -> Result<()> {
-        ctx.accounts.join_cycle(bumps)
+    pub fn join_cycle(ctx: Context<JoinCycle>) -> Result<()> {
+        ctx.accounts.join_cycle(ctx.bumps)
     }
 
     // Submit a contribution

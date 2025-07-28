@@ -3,6 +3,7 @@ use anchor_spl::{
     associated_token::AssociatedToken,
     token::{Mint, Token, TokenAccount, Transfer},
 };
+use crate::{error::CustomError, util::calculate_member_penalty, CycleAccount, MemberAccount};
 
 #[derive(Accounts)]
 pub struct ReportDefault<'info> {
@@ -29,9 +30,9 @@ pub struct ReportDefault<'info> {
         associated_token::authority = cycle
     )]
     pub cycle_token_account: Account<'info, TokenAccount>,
-
+/// CHECK
     #[account(mut)]
-    pub organizer: AccountInfo<'info>,
+    pub organizer: UncheckedAccount<'info>,
 
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
@@ -50,19 +51,12 @@ impl<'info> ReportDefault<'info> {
             .checked_sub(self.member_account.contributions_made)
             .ok_or(CustomError::ArithmeticUnderflow)?;
 
-        let penalty_amount = if self.member_account.payout_received {
-            // Full stake slash for post-payout default
-            self.member_account.collateral
-        } else if missed_rounds >= 3 {
-            // Full stake slash after 3 missed rounds
-            self.member_account.collateral
-        } else {
-            // 20% stake slash per missed round
-            self.member_account.collateral
-                .checked_mul(20 * missed_rounds as u64)
-                .ok_or(CustomError::ArithmeticOverflow)?
-                / 100
-        };
+        // Calculate penalty using util function
+        let penalty_amount = calculate_member_penalty(
+            self.member_account.collateral,
+            missed_rounds as u64,
+            self.member_account.payout_received,
+        )?;
 
         // Update member stake
         self.member_account.collateral = self.member_account.collateral

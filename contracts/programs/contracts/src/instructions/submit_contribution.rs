@@ -4,6 +4,8 @@ use anchor_spl::{
     token::{Mint, Token, TokenAccount, Transfer},
 };
 
+use crate::{error::CustomError, CycleAccount, MemberAccount};
+
 #[derive(Accounts)]
 pub struct SubmitContribution<'info> {
     #[account(mut)]
@@ -37,7 +39,7 @@ pub struct SubmitContribution<'info> {
         associated_token::authority = member
     )]
     pub member_token_account: Account<'info, TokenAccount>,
-
+    /// CHECK
     #[account(mut)]
     pub organizer: AccountInfo<'info>,
 
