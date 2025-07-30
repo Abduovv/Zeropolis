@@ -1,7 +1,48 @@
 # 💸 Zeropolis – Smart Money Circles on Blockchain
 
 Zeropolis is a decentralized ROSCA (Rotating Savings and Credit Association) platform that brings traditional money-saving circles onto the blockchain — making them **trustless**, **transparent**, and **fully programmable**.
-
+```spl
+Organizer
+   │
+   └──▶ create_cycle ─────┐
+                          ▼
+                    [Cycle Initialized]
+                          │
+         ┌────────────────┴────────────────┐
+         ▼                                 ▼
+  Members join_cycle                Organizer waits
+         │                                 │
+         └──▶ (members fill in)            │
+                          │               ▼
+                    [cycle.is_active ← true]
+                          │
+                    contribution rounds start
+                          │
+         ┌────────────────┴────────────────┐
+         ▼                                 ▼
+ submit_contribution             Organizer triggers_payout
+         │                                 │
+         └──▶ update_round, transfer       └──▶ payout & fee
+                          │
+     ┌──────────────┬──────────────┐
+     ▼              ▼              ▼
+ report_default  report_organizer_delay  exit_cycle
+     │              │              │
+     └───┐          └─────┐        └───┐
+         ▼                ▼            ▼
+  slash member      slash organizer   refund & leave
+                          │
+                          ▼
+                [Cycle finishes all rounds]
+                          │
+                          ▼
+                    close_cycle
+                          │
+                          ▼
+              - Refund organizer stake
+              - Refund/distribute remaining funds
+              - Close accounts
+```
 ---
 
 ## What’s the Idea?
