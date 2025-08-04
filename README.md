@@ -47,3 +47,76 @@ With **Zeropolis**, this entire process is automated by smart contracts — no b
 - Perfect for communities, families, and peer groups.
 - Encourages savings without relying on financial institutions.
 - Enforces rules through code — not trust.
+
+---
+
+
+---
+```scharp
+Organizer
+   │
+   └──▶ create_cycle(target_participants, collateral, token_mint, ...)
+          │
+          ▼
+    [Cycle PDA account is initialized]
+          │
+          ▼
+    [Cycle token_account (ATA) is created]
+          │
+          ▼
+    [cycle.current_participants = 0]
+          │
+          ▼
+Participants start joining
+          │
+          └──▶ join_cycle()
+                   │
+                   ▼
+         [member_account created with is_active = true]
+                   │
+                   ▼
+         [collateral transferred to cycle_token_account]
+                   │
+                   ▼
+         [member added to payout_order]
+                   │
+                   ▼
+         [cycle.current_participants += 1]
+                   │
+                   ▼
+         ┌────────────── if ───────────────┐
+         │ cycle.current_participants ==   │
+         │        cycle.target_participants│
+         └─────────────────┬───────────────┘
+                           │
+                           ▼
+               [Cycle starts automatically]
+                           │
+                           ▼
+              [cycle.current_round = 1]
+                           │
+                           ▼
+           ┌─────────────────────────────────┐
+           │  For each round in the cycle:   │
+           └─────────────────────────────────┘
+                           │
+         ┌─────────────────┴──────────────────┐
+         ▼                                    ▼
+members submit_contribution()         (no more exits allowed)
+         │
+         ▼
+[Pot collected for the round]
+         │
+         ▼
+[payout_order[current_round - 1] gets the pot]
+         │
+         ▼
+[cycle.current_round += 1]
+         │
+   ┌─────┴────────────┐
+   ▼                  ▼
+ more rounds        all rounds done
+    left              │
+    │                 ▼
+    └────────────▶ [Cycle closes]
+```
