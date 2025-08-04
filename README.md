@@ -2,6 +2,9 @@
 
 Zeropolis is a decentralized ROSCA (Rotating Savings and Credit Association) platform that brings traditional money-saving circles onto the blockchain — making them **trustless**, **transparent**, and **fully programmable**.
 
+![Solana](https://img.shields.io/badge/Solana-Devnet-3ECF8E?logo=solana&logoColor=white)
+![Anchor](https://img.shields.io/badge/Anchor-Framework-blueviolet)
+
 ---
 
 ## What’s the Idea?
