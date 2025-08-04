@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{Mint, Token, TokenAccount, Transfer},
+    token::{Token, TokenAccount, Transfer},
 };
 
 use crate::{error::CustomError, CycleAccount, MemberAccount};
@@ -12,8 +12,10 @@ pub struct ExitCycle<'info> {
     pub member: Signer<'info>,
 
     #[account(
-        mut,
-        has_one = organizer
+        mut,    
+        seeds = [b"cycle", organizer.key().as_ref(), cycle.nonces.to_le_bytes().as_ref()],
+        bump = cycle.bump,
+        has_one = organizer,
     )]
     pub cycle: Account<'info, CycleAccount>,
 
@@ -21,7 +23,6 @@ pub struct ExitCycle<'info> {
         mut,
         constraint = member_account.cycle == cycle.key() @ CustomError::InvalidCycle,
         constraint = member_account.member == member.key() @ CustomError::InvalidMember,
-        constraint = member_account.is_active @ CustomError::MemberNotActive,
         close = member
     )]
     pub member_account: Account<'info, MemberAccount>,
@@ -42,7 +43,7 @@ pub struct ExitCycle<'info> {
 
     /// CHECK
     #[account(mut)]
-    pub organizer: AccountInfo<'info>,
+    pub organizer: SystemAccount<'info>,
 
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
@@ -59,26 +60,32 @@ impl<'info> ExitCycle<'info> {
         let seeds = &[
             b"cycle",
             self.organizer.key.as_ref(),
+            &self.cycle.nonces.to_le_bytes(),
             &[self.cycle.bump],
         ];
         let signer_seeds = &[&seeds[..]];
-        let cpi_accounts = Transfer {
-            from: self.cycle_token_account.to_account_info(),
-            to: self.member_token_account.to_account_info(),
-            authority: self.cycle.to_account_info(),
-        };
-        let cpi_program = self.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer_seeds);
-        anchor_spl::token::transfer(cpi_ctx, self.member_account.collateral)?;
+
+        anchor_spl::token::transfer(
+            CpiContext::new_with_signer(
+                self.token_program.to_account_info(),
+                Transfer {
+                    from: self.cycle_token_account.to_account_info(),
+                    to: self.member_token_account.to_account_info(),
+                    authority: self.cycle.to_account_info(),
+                },
+                signer_seeds,
+            ),
+            self.member_account.collateral,
+        )?;
 
         // Update cycle
-        self.cycle.current_participants = self.cycle.current_participants
+        self.cycle.current_participants = self
+            .cycle
+            .current_participants
             .checked_sub(1)
             .ok_or(CustomError::ArithmeticUnderflow)?;
 
-        // Remove member from payout order
         self.cycle.payout_order.retain(|&x| x != self.member.key());
-        self.member_account.is_active = false;
 
         Ok(())
     }

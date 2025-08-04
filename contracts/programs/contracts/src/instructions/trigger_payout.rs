@@ -13,6 +13,8 @@ pub struct TriggerPayout<'info> {
     #[account(
         mut,
         has_one = organizer,
+        seeds = [b"cycle", organizer.key.as_ref(), cycle.nonces.to_le_bytes().as_ref()],
+        bump = cycle.bump,
         constraint = cycle.is_active @ CustomError::CycleNotActive
     )]
     pub cycle: Account<'info, CycleAccount>,
@@ -44,9 +46,9 @@ pub struct TriggerPayout<'info> {
         constraint = member_account.is_active @ CustomError::MemberNotActive
     )]
     pub member_account: Account<'info, MemberAccount>,
-/// CHECK
+
     #[account(mut)]
-    pub recipient: AccountInfo<'info>,
+    pub recipient: SystemAccount<'info>,
 
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
@@ -93,6 +95,7 @@ impl<'info> TriggerPayout<'info> {
             let seeds = &[
                 b"cycle",
                 self.organizer.key.as_ref(),
+                &self.cycle.nonces.to_le_bytes(),
                 &[self.cycle.bump],
             ];
             let signer_seeds = &[&seeds[..]];

@@ -48,4 +48,17 @@ pub enum CustomError {
     InsufficientStake,
     #[msg("Invalid member count (must be between 2 and 10)")]
     InvalidMemberCount,
+    #[msg("Unauthorized claimer")]
+    UnauthorizedClaimer,
+    #[msg("Invalid amount per user")]
+    InvalidAmountPerUser,
+    #[msg("Invalid contribution interval")]
+    InvalidContributionInterval,
+    #[msg("Invalid round count")]
+    InvalidRoundCount,
+    #[msg("Invalid contributions per payout")]
+    InvalidContributionsPerPayout,
+    #[msg("Member has already contributed this round")]
+    AlreadyContributedThisRound,
+
 }

@@ -3,7 +3,7 @@ use anchor_spl::{
     associated_token::AssociatedToken,
     token::{Mint, Token, TokenAccount, Transfer},
 };
-use crate::{error::CustomError, util::{calculate_organizer_stake, calculate_payout_amount, calculate_pot_amount}, CycleAccount, OrganizerAccount};
+use crate::{constants::USDT_MINT_ADRESS, error::CustomError, util::{calculate_organizer_stake, calculate_payout_amount, calculate_pot_amount}, CycleAccount, OrganizerAccount};
 
 #[derive(AnchorSerialize, AnchorDeserialize)]
 pub struct CreateCycleArgs {
@@ -12,11 +12,10 @@ pub struct CreateCycleArgs {
     pub contribution_interval: i64,
     pub contributions_per_payout: u8,
     pub round_count: u8,
-    pub token_mint: Pubkey,
 }
 
 #[derive(Accounts)]
-#[instruction(args: CreateCycleArgs)]
+#[instruction(args: CreateCycleArgs, nonces: u8)]
 pub struct CreateCycle<'info> {
     #[account(mut)]
     pub organizer: Signer<'info>,
@@ -25,7 +24,7 @@ pub struct CreateCycle<'info> {
         init,
         payer = organizer,
         space = 8 + CycleAccount::INIT_SPACE,
-        seeds = [b"cycle", organizer.key().as_ref()],
+        seeds = [b"cycle", organizer.key().as_ref(), nonces.to_le_bytes().as_ref()],
         bump
     )]
     pub cycle: Account<'info, CycleAccount>,
@@ -56,7 +55,7 @@ pub struct CreateCycle<'info> {
     pub organizer_token_account: Account<'info, TokenAccount>,
 
     #[account(
-        constraint = token_mint.key() == args.token_mint @ CustomError::InvalidTokenMint
+        constraint = token_mint.key() == USDT_MINT_ADRESS @ CustomError::InvalidTokenMint
     )]
     pub token_mint: Account<'info, Mint>,
 
@@ -71,7 +70,11 @@ impl<'info> CreateCycle<'info> {
         &mut self,
         args: CreateCycleArgs,
         bumps: CreateCycleBumps,
+        nonces: u8
     ) -> Result<()> {
+        require!(args.amount_per_user > 0, CustomError::InvalidAmountPerUser);
+        require!(args.contribution_interval > 0, CustomError::InvalidContributionInterval);
+        require!(args.round_count >= 1, CustomError::InvalidRoundCount);
         let clock = Clock::get()?;
 
         // Enforce member limits: 2 <= max_participants <= 10
@@ -118,7 +121,7 @@ impl<'info> CreateCycle<'info> {
         // Initialize cycle account with empty payout_order
         self.cycle.set_inner(CycleAccount {
             organizer: self.organizer.key(),
-            token_mint: args.token_mint,
+            token_mint: self.token_mint.key(),
             amount_per_user: args.amount_per_user,
             max_participants: args.max_participants,
             organizer_fee_bps,
@@ -127,6 +130,7 @@ impl<'info> CreateCycle<'info> {
             round_count: args.round_count,
             payout_order: Vec::new(), // Empty, filled during join_cycle
             created_at,
+            nonces,
             bump: bumps.cycle,
             current_participants: 0,
             is_active: false,

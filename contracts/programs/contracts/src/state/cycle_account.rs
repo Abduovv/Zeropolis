@@ -22,5 +22,6 @@ pub struct CycleAccount {
     pub pot_amount: u64,               // Calculated pot amount per payout
     pub payout_amount: u64,            // Calculated payout amount (pot minus fee)
     pub slashed_stakes: u64,           // Total slashed USDT for redistribution
+    pub nonces: u8,                    // Nonce for PDA
     pub bump: u8,                      // PDA bump seed
 }

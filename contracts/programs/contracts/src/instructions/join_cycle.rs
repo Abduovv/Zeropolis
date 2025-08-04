@@ -13,6 +13,8 @@ pub struct JoinCycle<'info> {
 
     #[account(
         mut,    
+        seeds = [b"cycle", organizer.key().as_ref(), cycle.nonces.to_le_bytes().as_ref()],
+        bump = cycle.bump,
         has_one = organizer,
         constraint = cycle.current_participants < cycle.max_participants @ CustomError::CycleFull
     )]
@@ -31,6 +33,7 @@ pub struct JoinCycle<'info> {
         mut,
         associated_token::mint = cycle.token_mint,
         associated_token::authority = cycle
+        
     )]
     pub cycle_token_account: Account<'info, TokenAccount>,
 
@@ -40,9 +43,9 @@ pub struct JoinCycle<'info> {
         associated_token::authority = member
     )]
     pub member_token_account: Account<'info, TokenAccount>,
-/// CHECK
+    /// CHECK
     #[account(mut)]
-    pub organizer: AccountInfo<'info>,
+    pub organizer: SystemAccount<'info>,
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
@@ -83,14 +86,14 @@ impl<'info> JoinCycle<'info> {
         });
 
         // Transfer collateral to cycle token account
-        let cpi_accounts = Transfer {
+        anchor_spl::token::transfer(CpiContext::new(
+            self.token_program.to_account_info(), 
+            Transfer {
             from: self.member_token_account.to_account_info(),
             to: self.cycle_token_account.to_account_info(),
             authority: self.member.to_account_info(),
-        };
-        let cpi_program = self.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
-        anchor_spl::token::transfer(cpi_ctx, required_member_stake)?;
+        },
+    ), required_member_stake)?;
 
         Ok(())
     }

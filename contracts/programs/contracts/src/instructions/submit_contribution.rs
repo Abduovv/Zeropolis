@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{Mint, Token, TokenAccount, Transfer},
+    token::{Token, TokenAccount, Transfer},
 };
 
 use crate::{error::CustomError, CycleAccount, MemberAccount};
@@ -14,6 +14,8 @@ pub struct SubmitContribution<'info> {
     #[account(
         mut,
         has_one = organizer,
+        seeds = [b"cycle", organizer.key.as_ref(), cycle.nonces.to_le_bytes().as_ref()],
+        bump = cycle.bump,
         constraint = cycle.is_active @ CustomError::CycleNotActive
     )]
     pub cycle: Account<'info, CycleAccount>,
@@ -41,7 +43,7 @@ pub struct SubmitContribution<'info> {
     pub member_token_account: Account<'info, TokenAccount>,
     /// CHECK
     #[account(mut)]
-    pub organizer: AccountInfo<'info>,
+    pub organizer: SystemAccount<'info>,
 
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
@@ -57,14 +59,11 @@ impl<'info> SubmitContribution<'info> {
 
         // Transfer contribution to cycle token account
         let contribution_amount = self.cycle.amount_per_user;
-        let cpi_accounts = Transfer {
+        anchor_spl::token::transfer(CpiContext::new(self.token_program.to_account_info(), Transfer {
             from: self.member_token_account.to_account_info(),
             to: self.cycle_token_account.to_account_info(),
             authority: self.member.to_account_info(),
-        };
-        let cpi_program = self.token_program.to_account_info();
-        let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
-        anchor_spl::token::transfer(cpi_ctx, contribution_amount)?;
+        }), contribution_amount)?;
 
         // Update member account
         self.member_account.contributions_made = self.member_account.contributions_made

@@ -56,7 +56,7 @@ pub struct CloseCycle<'info> {
 
     /// CHECK: The recipient is validated in the instruction logic to match either the organizer or a member_account's member field.
     #[account(mut)]
-    pub recipient: AccountInfo<'info>,
+    pub recipient: SystemAccount<'info>,
     
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
