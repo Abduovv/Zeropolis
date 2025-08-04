@@ -5,6 +5,10 @@ Zeropolis is a decentralized ROSCA (Rotating Savings and Credit Association) pla
 ![Solana](https://img.shields.io/badge/Solana-Devnet-3ECF8E?logo=solana&logoColor=white)
 ![Anchor](https://img.shields.io/badge/Anchor-Framework-blueviolet)
 
+<div align="center">
+  <img src="./logo.jpg" alt="Banner" width="600"/>
+</div>
+
 ---
 
 ## What’s the Idea?
