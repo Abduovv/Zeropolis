@@ -1,6 +1,6 @@
-# 💸 Zeropolis – Smart Money Circles on Blockchain
+# 💸 RotoFi – Smart Money Circles on Blockchain
 
-Zeropolis is a decentralized ROSCA (Rotating Savings and Credit Association) platform that brings traditional money-saving circles onto the blockchain — making them **trustless**, **transparent**, and **fully programmable**.
+RotoFi is a decentralized ROSCA (Rotating Savings and Credit Association) platform that brings traditional money-saving circles onto the blockchain — making them **trustless**, **transparent**, and **fully programmable**.
 
 ![Solana](https://img.shields.io/badge/Solana-Devnet-3ECF8E?logo=solana&logoColor=white)
 ![Anchor](https://img.shields.io/badge/Anchor-Framework-blueviolet)
@@ -15,7 +15,7 @@ Zeropolis is a decentralized ROSCA (Rotating Savings and Credit Association) pla
 
 Imagine a group of friends or community members saving together. Each month, everyone contributes a fixed amount, and one member takes the full pot. This continues until all members have received it once.
 
-With **Zeropolis**, this entire process is automated by smart contracts — no banks, no middlemen, and no need to trust anyone.
+With **RotoFi**, this entire process is automated by smart contracts — no banks, no middlemen, and no need to trust anyone.
 
 ---
 
