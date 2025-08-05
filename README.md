@@ -6,7 +6,7 @@ Zeropolis is a decentralized ROSCA (Rotating Savings and Credit Association) pla
 ![Anchor](https://img.shields.io/badge/Anchor-Framework-blueviolet)
 
 <div align="center">
-  <img src="./logo.jpg" alt="Banner" width="600"/>
+  <img src="./image.png" alt="Banner" width="600"/>
 </div>
 
 ---
