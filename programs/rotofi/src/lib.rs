@@ -4,17 +4,17 @@ use anchor_lang::prelude::*;
 pub mod constants;
 pub mod error;
 pub mod instructions;
-pub mod state;
+pub mod states;
 pub mod util;
 
 pub use constants::*;
 pub use instructions::*;
-pub use state::*;
+pub use states::*;
 pub use util::*;
-declare_id!("B1BXbY7CLKJW4TeJyFgNxzwRtLDEUuFMZTVWbv3FBE9s");
+declare_id!("GJ5q57HjkpunV17fqXQ2evLbWeCgnEWxKiqM4syPB4Dp");
 
 #[program]
-pub mod money_cycle {
+pub mod rotofi {
     use super::*;
     // Create a new cycle
     pub fn create_cycle(
